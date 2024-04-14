@@ -1,0 +1,90 @@
+#include <DFRobot_DF1201S.h>
+#include <SoftwareSerial.h>
+#include <Servo.h>
+
+// Define the pin numbers
+#define LEDPIN 13
+#define SENSORPIN 4
+#define YLED 9
+#define SERVO 8
+
+// Tell Arduino which pins are wired to MP3 player (remember RX on Arduino is TX on MP3 player)
+SoftwareSerial DF1201SSerial(2, 3);  // Arduino RX, Arduino TX
+
+// Object that will handle all communications to MP3 player
+DFRobot_DF1201S DF1201S;
+
+// Servo object for controlling the continuous rotation servo
+Servo myServo;
+
+void setup(void) {
+  pinMode(LEDPIN, OUTPUT);
+  pinMode(SENSORPIN, INPUT);
+  pinMode(YLED, OUTPUT); 
+  digitalWrite(SENSORPIN, HIGH); // Turn on the pullup
+  digitalWrite(LEDPIN, LOW);
+  digitalWrite(YLED, LOW);
+  
+  // Initialize MP3 player communications
+  DF1201SSerial.begin(115200);
+  while (!DF1201S.begin(DF1201SSerial)) {
+    Serial.println("Init failed, please check the wire connection!");
+    delay(1000);
+  }
+  DF1201S.setVol(30);  // Set a low-ish volume (valid values from 0 to 30)
+  delay(500);
+  DF1201S.switchFunction(DF1201S.MUSIC); // Be a music player, not a USB drive
+  delay(500);
+  DF1201S.setPlayMode(DF1201S.SINGLE); // Tell it to play just one file at a time (do this after switchFunction)
+  delay(500);
+
+  // Attach the servo to the servo pin
+  myServo.attach(SERVO);
+}
+
+void loop() {
+  // Read the state of the sensor pin
+  int sensorState = digitalRead(SENSORPIN);
+
+  // Check if the sensor beam is broken
+  // If it is, the sensorState is LOW
+  if (sensorState == LOW) {
+    // Turn LEDs on
+    digitalWrite(LEDPIN, HIGH);
+    digitalWrite(YLED, HIGH);
+
+    // Play the audio file for 5 seconds
+    DF1201S.playFileNum(1);
+    delay(5000); // Delay for 5 seconds
+
+    // Stop playing audio (optional)
+    // DF1201S.stop();
+    
+    // Turn LEDs off after playing
+    digitalWrite(LEDPIN, LOW);
+    digitalWrite(YLED, LOW);
+  } else {
+    // Turn LEDs off if sensor beam is not broken
+    digitalWrite(LEDPIN, LOW);
+    digitalWrite(YLED, LOW);
+  }
+
+  // Move the servo continuously back and forth
+  moveServoContinuous();
+}
+
+void moveServoContinuous() {
+  static int pos = 0;  // Current position of the servo
+
+  // Increment position
+  pos += 1;
+  if (pos > 90) {
+    pos = 0;  // Reset position to 0 once it reaches 90 degrees
+  }
+
+  // Set servo position
+  myServo.write(pos);
+
+  // Add a small delay to control the speed of servo movement
+  delay(15);  // Adjust delay as needed for desired speed
+}
